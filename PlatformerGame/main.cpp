@@ -1,4 +1,5 @@
-﻿#include <SFML/Graphics.hpp>
+﻿#define _CRT_SECURE_NO_WARNINGS
+#include <SFML/Graphics.hpp>
 #include <vector>
 #include <string>
 
@@ -13,12 +14,12 @@ struct Coin {
 // Структура для ДВЕРИ
 struct Door {
     RectangleShape shape;
-    bool isActive;      // активна ли дверь (появляется после сбора всех монет)
+    bool isActive;
     Vector2f position;
 
     Door() {
         shape.setSize(Vector2f(40, 60));
-        shape.setFillColor(Color(0, 200, 0));  // зелёная дверь (активная)
+        shape.setFillColor(Color(0, 200, 0));
         shape.setOutlineColor(Color::White);
         shape.setOutlineThickness(2);
         isActive = false;
@@ -32,17 +33,15 @@ struct Door {
     void update(bool allCoinsCollected) {
         isActive = allCoinsCollected;
         if (isActive) {
-            shape.setFillColor(Color(0, 200, 0));  // зелёная — вход открыт
+            shape.setFillColor(Color(0, 200, 0));
         }
         else {
-            shape.setFillColor(Color(100, 100, 100));  // серая — закрыто
+            shape.setFillColor(Color(100, 100, 100));
         }
     }
 
     void draw(RenderWindow& window) {
-        if (isActive) {
-            window.draw(shape);
-        }
+        window.draw(shape);
     }
 
     FloatRect getBounds() {
@@ -75,6 +74,24 @@ int main()
     Font font;
     font.openFromFile("arial.ttf");
 
+    // --- ЗАГРУЗКА ТЕКСТУР ---
+    Texture bgTexture, platformTexture, coinTexture, doorTexture;
+
+    if (!bgTexture.loadFromFile("background.png")) {
+        // Если нет фона — просто продолжим
+    }
+    if (!platformTexture.loadFromFile("platform.png")) {
+        // Если нет текстуры платформы — продолжим
+    }
+    if (!coinTexture.loadFromFile("coin.png")) {
+        // Если нет текстуры монетки — продолжим
+    }
+    if (!doorTexture.loadFromFile("door.png")) {
+        // Если нет текстуры двери — продолжим
+    }
+
+    // Применяем текстуры
+
     // --- Тексты ---
     Text scoreText(font);
     scoreText.setCharacterSize(36);
@@ -95,7 +112,34 @@ int main()
     Text doorText(font);
     doorText.setCharacterSize(28);
     doorText.setFillColor(Color::Yellow);
-    doorText.setPosition(Vector2f(0, 0));  // позиция будет обновляться
+
+    Text timerText(font);
+    timerText.setCharacterSize(36);
+    timerText.setFillColor(Color::White);
+    timerText.setPosition(Vector2f(1700, 20));
+
+    // --- МЕНЮ ПАУЗЫ ---
+    RectangleShape pauseBg(Vector2f(500, 350));
+    pauseBg.setFillColor(Color(50, 50, 50, 230));
+    pauseBg.setPosition(Vector2f(710, 365));
+
+    Text pauseTitle(font);
+    pauseTitle.setCharacterSize(48);
+    pauseTitle.setFillColor(Color::Yellow);
+    pauseTitle.setPosition(Vector2f(860, 400));
+    pauseTitle.setString("PAUSED");
+
+    Text restartBtn(font);
+    restartBtn.setCharacterSize(32);
+    restartBtn.setFillColor(Color::White);
+    restartBtn.setPosition(Vector2f(820, 490));
+    restartBtn.setString("Press R to Restart");
+
+    Text exitBtn(font);
+    exitBtn.setCharacterSize(32);
+    exitBtn.setFillColor(Color::White);
+    exitBtn.setPosition(Vector2f(820, 560));
+    exitBtn.setString("Press ESC to Exit");
 
     Text winText(font);
     winText.setCharacterSize(60);
@@ -104,10 +148,12 @@ int main()
     winText.setString("YOU WIN! Press R to play again");
 
     bool gameWon = false;
+    bool paused = false;
     int currentLevel = 1;
     int totalScore = 0;
+    float levelTime = 0;
 
-    // --- ИГРОК (КУБИК) ---
+    // --- ИГРОК ---
     RectangleShape player(Vector2f(100, 100));
     player.setFillColor(Color(80, 80, 80));
     Vector2f startPosition(100, 500);
@@ -118,6 +164,7 @@ int main()
     std::vector<Coin> coins;
     Door door;
     int score = 0;
+    bool doorPressed = false;
 
     // --- Создание монетки ---
     auto createCoin = [](float x, float y) -> Coin {
@@ -133,7 +180,7 @@ int main()
     Level level1;
     level1.playerStart = Vector2f(100, 500);
     level1.coinsToNextLevel = 3;
-    level1.door.setPosition(1700, 720);  // дверь справа
+    level1.door.setPosition(1700, 720);
 
     RectangleShape l1_p1(Vector2f(200, 30));
     l1_p1.setFillColor(Color(150, 100, 50));
@@ -150,6 +197,11 @@ int main()
     l1_p3.setPosition(Vector2f(1000, 600));
     level1.platforms.push_back(l1_p3);
 
+    RectangleShape l1_platformDoor(Vector2f(100, 30));
+    l1_platformDoor.setFillColor(Color(150, 100, 50));
+    l1_platformDoor.setPosition(Vector2f(1670, 780));
+    level1.platforms.push_back(l1_platformDoor);
+
     level1.coins.push_back(createCoin(150, 750));
     level1.coins.push_back(createCoin(550, 650));
     level1.coins.push_back(createCoin(1050, 550));
@@ -158,7 +210,7 @@ int main()
     Level level2;
     level2.playerStart = Vector2f(100, 400);
     level2.coinsToNextLevel = 4;
-    level2.door.setPosition(1700, 520);  // дверь справа
+    level2.door.setPosition(1700, 520);
 
     RectangleShape l2_p1(Vector2f(180, 30));
     l2_p1.setFillColor(Color(150, 100, 50));
@@ -180,6 +232,11 @@ int main()
     l2_p4.setPosition(Vector2f(1200, 600));
     level2.platforms.push_back(l2_p4);
 
+    RectangleShape l2_platformDoor(Vector2f(100, 30));
+    l2_platformDoor.setFillColor(Color(150, 100, 50));
+    l2_platformDoor.setPosition(Vector2f(1670, 580));
+    level2.platforms.push_back(l2_platformDoor);
+
     level2.coins.push_back(createCoin(140, 650));
     level2.coins.push_back(createCoin(500, 550));
     level2.coins.push_back(createCoin(850, 450));
@@ -189,7 +246,7 @@ int main()
     Level level3;
     level3.playerStart = Vector2f(100, 300);
     level3.coinsToNextLevel = 5;
-    level3.door.setPosition(1700, 350);  // дверь справа
+    level3.door.setPosition(1700, 350);
 
     RectangleShape l3_p1(Vector2f(150, 30));
     l3_p1.setFillColor(Color(150, 100, 50));
@@ -216,6 +273,11 @@ int main()
     l3_p5.setPosition(Vector2f(1300, 450));
     level3.platforms.push_back(l3_p5);
 
+    RectangleShape l3_platformDoor(Vector2f(100, 30));
+    l3_platformDoor.setFillColor(Color(150, 100, 50));
+    l3_platformDoor.setPosition(Vector2f(1670, 410));
+    level3.platforms.push_back(l3_platformDoor);
+
     level3.coins.push_back(createCoin(140, 600));
     level3.coins.push_back(createCoin(440, 500));
     level3.coins.push_back(createCoin(740, 400));
@@ -234,6 +296,7 @@ int main()
             player.setPosition(lvl.playerStart);
             startPosition = lvl.playerStart;
             score = 0;
+            levelTime = 0;
         }
         };
 
@@ -245,9 +308,7 @@ int main()
     bool isOnGround = false;
 
     Clock deltaClock;
-
-    // --- Флаг для предотвращения многократного перехода ---
-    bool doorPressed = false;
+    bool escWasPressed = false;
 
     while (window.isOpen())
     {
@@ -259,11 +320,56 @@ int main()
                 window.close();
         }
 
+        // --- МЕНЮ ПО ESC ---
+        bool escPressed = Keyboard::isKeyPressed(Keyboard::Key::Escape);
+
+        if (escPressed && !escWasPressed && !gameWon) {
+            paused = !paused;
+        }
+        escWasPressed = escPressed;
+
+        if (paused && !gameWon) {
+            window.setView(window.getDefaultView());
+            window.clear(Color(50, 50, 70));
+            window.draw(pauseBg);
+            window.draw(pauseTitle);
+            window.draw(restartBtn);
+            window.draw(exitBtn);
+            window.display();
+
+            if (Keyboard::isKeyPressed(Keyboard::Key::R)) {
+                player.setPosition(startPosition);
+                velocity = Vector2f(0, 0);
+                score = 0;
+                levelTime = 0;
+                if (currentLevel <= (int)levels.size()) {
+                    Level& lvl = levels[currentLevel - 1];
+                    coins = lvl.coins;
+                }
+                doorPressed = false;
+                paused = false;
+            }
+
+            if (Keyboard::isKeyPressed(Keyboard::Key::Escape)) {
+                window.close();
+            }
+
+            continue;
+        }
+
         if (currentLevel > (int)levels.size()) {
             gameWon = true;
         }
 
-        if (!gameWon) {
+        if (!gameWon && !paused) {
+            // --- ТАЙМЕР ---
+            levelTime += deltaTime;
+            int seconds = (int)levelTime % 60;
+            int minutes = (int)levelTime / 60;
+            char timeStr[20];
+            sprintf_s(timeStr, sizeof(timeStr), "%02d:%02d", minutes, seconds);
+            timerText.setString(timeStr);
+
             // --- Управление ---
             if (Keyboard::isKeyPressed(Keyboard::Key::Left))
                 velocity.x = -200.0f;
@@ -284,6 +390,7 @@ int main()
                 player.setPosition(startPosition);
                 velocity = Vector2f(0, 0);
                 score = 0;
+                levelTime = 0;
                 if (currentLevel <= (int)levels.size()) {
                     Level& lvl = levels[currentLevel - 1];
                     coins = lvl.coins;
@@ -313,12 +420,10 @@ int main()
                 }
             }
 
-            // Ограничение по левому краю
             if (player.getPosition().x < 20) {
                 player.setPosition(Vector2f(20, player.getPosition().y));
             }
 
-            // --- Падение в пропасть ---
             if (player.getPosition().y > 1200) {
                 player.setPosition(startPosition);
                 velocity = Vector2f(0, 0);
@@ -341,30 +446,23 @@ int main()
                 }
             }
 
-            // --- ПОДСЧЁТ СОБРАННЫХ МОНЕТ ---
             int collectedCount = 0;
             for (auto& coin : coins) {
                 if (coin.collected) collectedCount++;
             }
 
-            // --- ОБНОВЛЕНИЕ ДВЕРИ (активна, если собраны все монеты уровня) ---
             Level& currentLvl = levels[currentLevel - 1];
             bool allCoinsCollected = (collectedCount >= currentLvl.coinsToNextLevel);
             door.update(allCoinsCollected);
 
-            // --- ПЕРЕХОД К ДВЕРИ ПО КЛАВИШЕ E ---
             if (door.isActive) {
                 FloatRect playerBounds(player.getPosition(), Vector2f(100, 100));
                 FloatRect doorBounds = door.getBounds();
 
                 if (playerBounds.findIntersection(doorBounds)) {
-                    // Показываем подсказку
-                    doorText.setString("Press E to enter the door");
-                    float textX = door.position.x - 50;
-                    float textY = door.position.y - 40;
-                    doorText.setPosition(Vector2f(textX, textY));
+                    doorText.setString("Press E to enter");
+                    doorText.setPosition(Vector2f(door.position.x - 40, door.position.y - 40));
 
-                    // Переход по клавише E
                     if (Keyboard::isKeyPressed(Keyboard::Key::E) && !doorPressed) {
                         doorPressed = true;
                         currentLevel++;
@@ -385,7 +483,6 @@ int main()
             }
         }
 
-        // --- Рестарт всей игры ---
         if (gameWon && Keyboard::isKeyPressed(Keyboard::Key::R)) {
             gameWon = false;
             currentLevel = 1;
@@ -394,7 +491,6 @@ int main()
             doorPressed = false;
         }
 
-        // --- Обновление текста ---
         if (!gameWon) {
             scoreText.setString("Score: " + std::to_string(score) + "  Total: " + std::to_string(totalScore));
         }
@@ -403,7 +499,6 @@ int main()
         }
         levelText.setString("Level: " + std::to_string(currentLevel) + "/" + std::to_string(levels.size()));
 
-        // --- ОБНОВЛЕНИЕ КАМЕРЫ ---
         float cameraX = player.getPosition().x + 50 - 960;
         float cameraY = player.getPosition().y + 50 - 540;
 
@@ -414,9 +509,7 @@ int main()
 
         camera.setCenter(Vector2f(cameraX + 960, cameraY + 540));
 
-        // --- Отрисовка ---
         window.setView(camera);
-
         window.clear(Color(60, 60, 60));
 
         for (auto& plat : platforms)
@@ -427,14 +520,13 @@ int main()
                 window.draw(coin.shape);
 
         door.draw(window);
-
         window.draw(player);
 
-        // --- UI текст (без камеры) ---
         window.setView(window.getDefaultView());
         window.draw(scoreText);
         window.draw(restartText);
         window.draw(levelText);
+        window.draw(timerText);
         window.draw(doorText);
 
         if (gameWon) {
