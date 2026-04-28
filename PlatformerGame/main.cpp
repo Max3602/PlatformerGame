@@ -1,5 +1,4 @@
 ﻿#include <SFML/Graphics.hpp>
-#include <clocale>
 #include <vector>
 #include <string>
 
@@ -7,43 +6,33 @@ using namespace sf;
 
 int main()
 {
-    setlocale(LC_ALL, "Russian");
-    RenderWindow window(VideoMode({ 1920, 1080 }), L"Мой платформер");  // L перед заголовком окна
+    RenderWindow window(VideoMode({ 1920, 1080 }), "Platformer Game");
     window.setFramerateLimit(60);
 
     // --- Шрифт ---
     Font font;
-    if (!font.openFromFile("arial.ttf"))
-    {
-        // Если шрифт не загружен — русский текст не покажется
-    }
+    font.openFromFile("arial.ttf");  // если нет файла — текст не появится, но игра не упадёт
 
-    // --- Счёт ---
-    Text scoreText(font);
+    // --- Текст счёта (СОЗДАЁМ СРАЗУ СО ШРИФТОМ) ---
+    Text scoreText(font);  // ← вот так правильно для SFML 3!
     scoreText.setCharacterSize(36);
     scoreText.setFillColor(Color::White);
     scoreText.setPosition(Vector2f(20, 20));
 
-    // --- Русский заголовок ---
-    Text titleText(font);
-    titleText.setCharacterSize(60);
-    titleText.setFillColor(Color::Yellow);
-    titleText.setPosition(Vector2f(600, 50));
-    titleText.setString(L"Мой платформер");  // L перед строкой!
-
-    // --- Подсказка по управлению (русская) ---
-    Text controlsText(font);
-    controlsText.setCharacterSize(24);
-    controlsText.setFillColor(Color::White);
-    controlsText.setPosition(Vector2f(20, 100));
-    controlsText.setString(L"Управление: ← → - движение, ↑ - прыжок");
+    // --- Текст рестарта (СОЗДАЁМ СРАЗУ СО ШРИФТОМ) ---
+    Text restartText(font);  // ← вот так правильно для SFML 3!
+    restartText.setCharacterSize(24);
+    restartText.setFillColor(Color::White);
+    restartText.setPosition(Vector2f(20, 70));
+    restartText.setString("Press R to restart");
 
     int score = 0;
 
     // --- Игрок ---
     RectangleShape player(Vector2f(100, 100));
     player.setFillColor(Color::Green);
-    player.setPosition(Vector2f(100, 500));
+    Vector2f startPosition(100, 500);
+    player.setPosition(startPosition);
 
     // --- Платформы ---
     std::vector<RectangleShape> platforms;
@@ -71,26 +60,32 @@ int main()
 
     std::vector<Coin> coins;
 
-    Coin c1;
-    c1.shape = RectangleShape(Vector2f(20, 20));
-    c1.shape.setFillColor(Color::Yellow);
-    c1.shape.setPosition(Vector2f(150, 750));
-    c1.collected = false;
-    coins.push_back(c1);
+    auto createCoins = [&]() {
+        coins.clear();
 
-    Coin c2;
-    c2.shape = RectangleShape(Vector2f(20, 20));
-    c2.shape.setFillColor(Color::Yellow);
-    c2.shape.setPosition(Vector2f(550, 650));
-    c2.collected = false;
-    coins.push_back(c2);
+        Coin c1;
+        c1.shape = RectangleShape(Vector2f(20, 20));
+        c1.shape.setFillColor(Color::Yellow);
+        c1.shape.setPosition(Vector2f(150, 750));
+        c1.collected = false;
+        coins.push_back(c1);
 
-    Coin c3;
-    c3.shape = RectangleShape(Vector2f(20, 20));
-    c3.shape.setFillColor(Color::Yellow);
-    c3.shape.setPosition(Vector2f(1050, 550));
-    c3.collected = false;
-    coins.push_back(c3);
+        Coin c2;
+        c2.shape = RectangleShape(Vector2f(20, 20));
+        c2.shape.setFillColor(Color::Yellow);
+        c2.shape.setPosition(Vector2f(550, 650));
+        c2.collected = false;
+        coins.push_back(c2);
+
+        Coin c3;
+        c3.shape = RectangleShape(Vector2f(20, 20));
+        c3.shape.setFillColor(Color::Yellow);
+        c3.shape.setPosition(Vector2f(1050, 550));
+        c3.collected = false;
+        coins.push_back(c3);
+        };
+
+    createCoins();
 
     // --- Физика ---
     Vector2f velocity(0, 0);
@@ -99,7 +94,6 @@ int main()
 
     while (window.isOpen())
     {
-        // --- События ---
         while (const std::optional event = window.pollEvent())
         {
             if (event->is<Event::Closed>())
@@ -114,11 +108,19 @@ int main()
         else
             velocity.x = 0.0f;
 
-        // Прыжок
         if (Keyboard::isKeyPressed(Keyboard::Key::Up) && isOnGround)
         {
             velocity.y = -800.0f;
             isOnGround = false;
+        }
+
+        // --- Рестарт ---
+        if (Keyboard::isKeyPressed(Keyboard::Key::R))
+        {
+            player.setPosition(startPosition);
+            velocity = Vector2f(0, 0);
+            score = 0;
+            createCoins();
         }
 
         // --- Гравитация ---
@@ -143,7 +145,7 @@ int main()
             }
         }
 
-        // --- Проверка сбора монеток ---
+        // --- Сбор монеток ---
         for (auto& coin : coins)
         {
             if (!coin.collected &&
@@ -157,28 +159,22 @@ int main()
             }
         }
 
-        // --- Обновляем текст ---
-        scoreText.setString("Score: " + std::to_string(score));  // счёт на английском (надёжнее)
+        // --- Обновление текста ---
+        scoreText.setString("Score: " + std::to_string(score));
 
         // --- Отрисовка ---
         window.clear(Color::Magenta);
 
-        // Рисуем платформы
         for (auto& plat : platforms)
             window.draw(plat);
 
-        // Рисуем монетки
         for (auto& coin : coins)
             if (!coin.collected)
                 window.draw(coin.shape);
 
-        // Рисуем игрока
         window.draw(player);
-
-        // Рисуем текст
-        window.draw(titleText);      // русский заголовок
-        window.draw(controlsText);   // русская подсказка
-        window.draw(scoreText);      // счёт (английский)
+        window.draw(scoreText);
+        window.draw(restartText);
 
         window.display();
     }
